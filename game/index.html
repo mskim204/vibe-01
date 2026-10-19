@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>수도권 전철 역 퀴즈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@500;700;900&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 한 열짜리 게임 화면. 가운데에 역 이름판, 아래에 입력칸과 노선 진행 줄 */
+:root{
+  --bg:#E6EAEE; --surface:#FFFFFF; --ink:#14181D; --muted:#5A6470; --rule:#CBD2D9;
+  --ok:#1B8048; --no:#C2352B; --sign:#FFFFFF; --sign-ink:#0F1317; --soft:#F2F4F6;
+  --line:#0052A4; --line-ink:#FFFFFF;
+  --f-display:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1216; --surface:#181C22; --ink:#E7EBEF; --muted:#97A1AC; --rule:#2B323B;
+    --ok:#3CBB72; --no:#EE6A5F; --sign:#1C2128; --sign-ink:#F3F5F7; --soft:#20262E; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1216; --surface:#181C22; --ink:#E7EBEF; --muted:#97A1AC; --rule:#2B323B;
+  --ok:#3CBB72; --no:#EE6A5F; --sign:#1C2128; --sign-ink:#F3F5F7; --soft:#20262E; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:760px;margin:0 auto;padding-inline:16px;padding-block:28px 48px;display:flex;flex-direction:column;gap:22px}
+h1,h2{font-family:var(--f-display);font-weight:900;letter-spacing:-0.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(26px,5vw,34px)}
+h2{font-size:20px}
+p{margin:0}
+.muted{color:var(--muted)}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);padding:10px 16px}
+button:hover{border-color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--line);outline-offset:2px}
+.primary{background:var(--line);color:var(--line-ink);border-color:var(--line);font-weight:600}
+.primary:hover{filter:brightness(1.08);border-color:var(--line)}
+.num{font-variant-numeric:tabular-nums}
+
+/* 노선 표시 */
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:30px;padding:0 8px;border-radius:15px;
+  font-family:var(--f-display);font-weight:900;font-size:14px;white-space:nowrap;flex:none}
+
+/* 시작 화면 */
+.intro{display:flex;flex-direction:column;gap:10px}
+.rules{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:14px;color:var(--muted)}
+.rules b{color:var(--ink);font-weight:600}
+.lines{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
+.line-btn{display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;border-radius:10px}
+.line-btn .nm{font-weight:600;min-width:0}
+.line-btn .ct{margin-left:auto;font-size:13px;color:var(--muted)}
+
+.variant{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:18px}
+.variant-head{display:flex;align-items:center;gap:10px}
+.variant-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+.var-btn{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:12px 14px;border-radius:10px;background:var(--soft)}
+.var-btn strong{font-family:var(--f-display);font-weight:900;font-size:18px}
+.var-btn span{font-size:13px;color:var(--muted)}
+.var-btn em{font-style:normal;font-size:13px;font-weight:600}
+
+/* 환승 노선 */
+.xfer{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:center;font-size:13px;color:var(--muted)}
+.xfer .badge{min-width:24px;height:24px;font-size:12px;padding:0 7px}
+
+/* 게임 화면 */
+.topbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.topbar .cur{display:flex;align-items:center;gap:10px;font-weight:600;font-size:17px;min-width:0}
+.topbar .score{display:flex;gap:12px;margin-left:auto;font-size:14px}
+.score .ok{color:var(--ok);font-weight:600}
+.score .no{color:var(--no);font-weight:600}
+.bar{height:4px;background:var(--rule);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--line);width:0;transition:width .3s}
+
+/* 역 이름판: 지하철 승강장 역명판 모양 */
+.sign{background:var(--sign);color:var(--sign-ink);border-radius:14px;overflow:hidden;border:1px solid var(--rule);box-shadow:0 8px 24px rgba(10,20,30,.08)}
+.sign-top{padding:26px 20px 20px;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative}
+.sign-top .badge{position:absolute;left:16px;top:16px}
+.cho{font-family:var(--f-display);font-weight:900;font-size:clamp(40px,11vw,68px);letter-spacing:.12em;line-height:1.1;text-align:center;word-break:keep-all}
+.cho.reveal{letter-spacing:.02em}
+.region{font-size:14px;font-weight:500;color:var(--muted);display:flex;gap:6px;align-items:center}
+.region::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--line)}
+.sign-band{background:var(--line);color:var(--line-ink);display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 16px;font-weight:600;font-size:15px}
+.sign-band span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sign-band small{font-weight:500;opacity:.8;font-size:12px;margin-right:6px}
+
+.answer{display:flex;flex-wrap:wrap;gap:8px}
+.answer input{flex:1 1 220px;min-width:0;font:inherit;font-size:18px;padding:11px 14px;border-radius:8px;border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+.answer input[readonly]{background:var(--soft)}
+.feedback{min-height:26px;font-weight:600;font-size:16px}
+.feedback.ok{color:var(--ok)}
+.feedback.no{color:var(--no)}
+.feedback s{color:var(--muted);font-weight:400}
+
+.strip-wrap{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:12px 0 6px}
+.strip-head{display:flex;justify-content:space-between;padding:0 14px 6px;font-size:13px;color:var(--muted)}
+.strip{display:flex;overflow-x:auto;padding:4px 14px 10px;scroll-behavior:smooth}
+.st{flex:none;width:58px;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative}
+.st::before{content:"";position:absolute;top:8px;left:0;right:0;height:4px;background:var(--line);opacity:.35}
+.st.gap::before{left:50%}
+.st:last-child::before{right:50%}
+.dot{width:20px;height:20px;border-radius:50%;background:var(--surface);border:4px solid var(--line);position:relative;z-index:1}
+.st.ok .dot{background:var(--ok);border-color:var(--ok)}
+.st.no .dot{background:var(--no);border-color:var(--no)}
+.st.now .dot{transform:scale(1.25);background:var(--line)}
+.st b{font-size:11px;font-weight:500;line-height:1.25;text-align:center;word-break:keep-all;color:var(--muted)}
+.st.ok b,.st.no b,.st.now b{color:var(--ink)}
+
+/* 결과 화면 */
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.tot{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:2px}
+.tot span{font-size:13px;color:var(--muted)}
+.tot strong{font-family:var(--f-display);font-weight:900;font-size:30px}
+.tot.ok strong{color:var(--ok)}
+.tot.no strong{color:var(--no)}
+.table-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--rule);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 14px;text-align:left;border-bottom:1px solid var(--rule);white-space:nowrap}
+th{font-weight:600;color:var(--muted);font-size:13px}
+tr:last-child td{border-bottom:0}
+td.r,th.r{text-align:right}
+.miss{display:flex;flex-direction:column;gap:12px}
+.miss-line{display:flex;gap:10px;align-items:flex-start}
+.miss-line .badge{margin-top:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.chip{background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:3px 9px;font-size:14px}
+.chip s{color:var(--muted);font-size:12px;margin-left:4px}
+.chip.no{border-color:var(--no);color:var(--no);font-weight:600}
+.chip.no s{font-weight:400}
+
+/* 결과 노선도: 역을 순서대로, 틀린 역은 빨갛게 */
+.route-wrap{background:var(--surface);border:1px solid var(--rule);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.route-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px}
+.legend{display:flex;gap:12px;font-size:13px;color:var(--muted)}
+.lg{display:inline-flex;align-items:center;gap:5px}
+.lg::before{content:"";width:10px;height:10px;border-radius:50%;border:2px solid var(--line);background:var(--surface)}
+.lg.ok::before{background:var(--ok);border-color:var(--ok)}
+.lg.no::before{background:var(--no);border-color:var(--no)}
+.route{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 12px}
+.route li{display:flex;align-items:center;gap:8px;padding:4px 6px;border-radius:6px;font-size:14px;min-width:0}
+.route li .n{font-size:11px;color:var(--muted);width:22px;text-align:right;flex:none}
+.route li .d{width:12px;height:12px;border-radius:50%;border:3px solid var(--line);background:var(--surface);flex:none}
+.route li.ok .d{background:var(--ok);border-color:var(--ok)}
+.route li.no{background:color-mix(in srgb,var(--no) 12%,transparent);color:var(--no);font-weight:600}
+.route li.no .d{background:var(--no);border-color:var(--no)}
+.route li.skip{color:var(--muted)}
+.route li .t{min-width:0;overflow-wrap:anywhere}
+.route li.split{grid-column:1/-1;font-size:12px;color:var(--muted);padding-top:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.note{font-size:13px;color:var(--muted)}
+
+@media (max-width:480px){
+  .topbar .score{margin-left:0;width:100%}
+  .totals strong{font-size:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <section id="pick" class="intro">
+    <h1>수도권 전철 역 퀴즈</h1>
+    <p class="muted">노선을 고르세요. 그 노선의 역을 처음부터 끝까지 하나씩 맞히고, 다 풀면 기록과 틀린 역을 보여 드립니다.</p>
+    <div class="rules">
+      <span><b>힌트</b> 역 이름의 초성, 지역, 환승 노선</span>
+      <span><b>기회</b> 역마다 한 번</span>
+      <span><b>끝내기</b> 중간에 종료하기 버튼</span>
+      <span id="totalCount" class="num"></span>
+    </div>
+    <div class="lines" id="lineList"></div>
+    <div class="variant" id="variantBox" hidden>
+      <div class="variant-head"><span class="badge" id="variantBadge"></span><h2 id="variantTitle">1호선은 어느 구간으로 할까요?</h2></div>
+      <div class="variant-list" id="variantList"></div>
+      <div><button type="button" id="variantBack">다른 노선 고르기</button></div>
+    </div>
+    <p class="note">2026년 10월 운행 노선 기준입니다. 지역은 역이 있는 시·군·구입니다.</p>
+  </section>
+
+  <section id="play" hidden>
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div class="topbar">
+        <div class="cur"><span class="badge" id="curBadge"></span><span id="curName"></span></div>
+        <div class="score num">
+          <span class="ok">맞힘 <span id="okCount">0</span></span>
+          <span class="no">틀림 <span id="noCount">0</span></span>
+          <span class="muted"><span id="doneCount">0</span> / <span id="allCount">0</span></span>
+        </div>
+        <button id="quitBtn" type="button">종료하기</button>
+      </div>
+      <div class="bar"><i id="barFill"></i></div>
+
+      <div class="sign" aria-live="polite">
+        <div class="sign-top">
+          <span class="badge" id="signBadge"></span>
+          <div class="cho" id="cho"></div>
+          <div class="region" id="region"></div>
+          <div class="xfer" id="xfer" hidden></div>
+        </div>
+        <div class="sign-band">
+          <span><small>이전 역</small><span id="prevName"></span></span>
+          <span id="posText" class="num"></span>
+        </div>
+      </div>
+
+      <form class="answer" id="answerForm" autocomplete="off">
+        <input id="answer" type="text" placeholder="역 이름을 입력하세요" aria-label="역 이름">
+        <button class="primary" id="checkBtn" type="submit">확인</button>
+        <button id="skipBtn" type="button">모르겠어요</button>
+      </form>
+      <div class="feedback" id="feedback"></div>
+
+      <div class="strip-wrap">
+        <div class="strip-head"><span id="stripTitle"></span><span id="stripCount" class="num"></span></div>
+        <div class="strip" id="strip"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="result" hidden>
+    <div style="display:flex;flex-direction:column;gap:20px">
+      <div style="display:flex;flex-direction:column;gap:6px">
+        <h1 id="resultTitle">결과</h1>
+        <p class="muted" id="resultSub"></p>
+      </div>
+      <div class="totals num">
+        <div class="tot ok"><span>맞힌 역</span><strong id="rOk">0</strong></div>
+        <div class="tot no"><span>틀린 역</span><strong id="rNo">0</strong></div>
+        <div class="tot"><span>정답률</span><strong id="rRate">0%</strong></div>
+      </div>
+      <div class="miss" id="missWrap">
+        <h2 id="missTitle">틀린 역</h2>
+        <div class="chips" id="missList"></div>
+      </div>
+      <div class="route-wrap">
+        <div class="route-head">
+          <h2 id="routeTitle">노선 기록</h2>
+          <div class="legend"><span class="lg ok">맞힘</span><span class="lg no">틀림</span><span class="lg skip">안 푼 역</span></div>
+        </div>
+        <ol class="route" id="route"></ol>
+      </div>
+      <div class="actions">
+        <button class="primary" id="retryBtn" type="button">다시 하기</button>
+        <button id="againBtn" type="button">처음으로</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// 지역 머리글자: S 서울, G 경기, I 인천, C 충남, K 강원
+// 형식: "@지역" 이후 역들은 그 지역, "^역" 은 이 구간 첫 역의 이전 역(갈래 구간), "이름=다른이름" 은 함께 정답으로 인정,
+// 끝에 "!" 가 붙은 역은 이름이 같아도 다른 역(환승 아님). 1호선은 parts 조각을 이어 구간(variants)을 만듦
+const LINES = [
+ {id:"1",label:"1",name:"1호선",color:"#0052A4",variants:[
+  {key:"all",name:"전체",desc:"인천–연천 다음 구로–신창 (광명·서동탄 포함)",parts:["ic","^구로,","gb","gm","sd"]},
+  {key:"ic",name:"인천–연천",desc:"경인선·경원선 구간",parts:["ic"]},
+  {key:"gr",name:"구로–신창",desc:"경부선·장항선 구간 (광명·서동탄 포함)",parts:["@S구로구,구로,","gb","gm","sd"]}],
+  parts:{
+  ic:"@I중구,인천,동인천,@I동구,도원,@I미추홀구,제물포,도화,주안,@I남동구,간석,@I부평구,동암,백운,부평,부개,@G부천시,송내,중동,부천,소사,역곡,@S구로구,온수,오류동,개봉,구일,구로,신도림,@S영등포구,영등포,신길,대방,@S동작구,노량진,@S용산구,용산,남영,@S중구,서울역,시청,@S종로구,종각,종로3가,종로5가,동대문,동묘앞,@S동대문구,신설동,제기동,청량리,회기,외대앞,신이문,@S노원구,석계,광운대,월계,녹천,@S도봉구,창동,방학,도봉,도봉산,@G의정부시,망월사,회룡,의정부,가능,녹양,@G양주시,양주,덕계,덕정,@G동두천시,지행,동두천중앙,보산,동두천,소요산,@G연천군,청산,전곡,연천",
+  gb:"@S금천구,가산디지털단지,독산,금천구청,@G안양시,석수,관악,안양,명학,@G군포시,금정,군포,당정,@G의왕시,의왕,@G수원시,성균관대,화서,수원,세류,@G화성시,병점,@G오산시,세마,오산대,오산,@G평택시,진위,송탄,서정리,평택지제,평택,@C천안시,성환,직산,두정,천안,봉명,쌍용(나사렛대),@C아산시,아산,탕정,배방,온양온천,신창",
+  gm:"^금천구청,@G광명시,광명",
+  sd:"^병점,@G화성시,서동탄"}},
+ {id:"2",label:"2",name:"2호선",color:"#00A84D",segs:[
+  "@S중구,시청,을지로입구,을지로3가,을지로4가,동대문역사문화공원,신당,@S성동구,상왕십리,왕십리,한양대,뚝섬,성수,@S광진구,건대입구,구의,강변,@S송파구,잠실나루,잠실,잠실새내,종합운동장,@S강남구,삼성,선릉,역삼,강남,@S서초구,교대,서초,방배,@S동작구,사당,@S관악구,낙성대,서울대입구,봉천,신림,신대방,@S구로구,구로디지털단지,대림,신도림,@S영등포구,문래,영등포구청,당산,@S마포구,합정,홍대입구,@S서대문구,신촌,이대,@S마포구,아현,@S서대문구,충정로",
+  "^성수,@S성동구,용답,신답,@S동대문구,용두,신설동",
+  "^신도림,@S구로구,도림천,@S양천구,양천구청,신정네거리,@S강서구,까치산"]},
+ {id:"3",label:"3",name:"3호선",color:"#EF7C1C",segs:[
+  "@G고양시,대화,주엽,정발산,마두,백석,대곡,화정,원당,원흥,삼송,지축,@S은평구,구파발,연신내,불광,녹번,@S서대문구,홍제,무악재,독립문,@S종로구,경복궁,안국,종로3가,@S중구,을지로3가,충무로,동대입구,약수,@S성동구,금호,옥수,@S강남구,압구정,신사,@S서초구,잠원,고속터미널,교대,남부터미널,양재,@S강남구,매봉,도곡,대치,학여울,대청,일원,수서,@S송파구,가락시장,경찰병원,오금"]},
+ {id:"4",label:"4",name:"4호선",color:"#00A5DE",segs:[
+  "@G남양주시,진접,오남,별내별가람,@S노원구,불암산=당고개,상계,노원,@S도봉구,창동,쌍문,@S강북구,수유,미아,미아사거리,@S성북구,길음,성신여대입구,한성대입구,@S종로구,혜화,동대문,@S중구,동대문역사문화공원,충무로,명동,회현,서울역,@S용산구,숙대입구,삼각지,신용산,이촌,@S동작구,동작,총신대입구(이수),사당,@S서초구,남태령,@G과천시,선바위,경마공원,대공원,과천,정부과천청사,@G안양시,인덕원,평촌,범계,@G군포시,금정,산본,수리산,대야미,@G안산시,반월,상록수,한대앞,중앙,고잔,초지,안산,신길온천,@G시흥시,정왕,오이도"]},
+ {id:"5",label:"5",name:"5호선",color:"#996CAC",segs:[
+  "@S강서구,방화,개화산,김포공항,송정,마곡,발산,우장산,화곡,까치산,@S양천구,신정,목동,오목교,@S영등포구,양평,영등포구청,영등포시장,신길,여의도,여의나루,@S마포구,마포,공덕,애오개,@S서대문구,충정로,@S종로구,서대문,광화문,종로3가,@S중구,을지로4가,동대문역사문화공원,청구,@S성동구,신금호,행당,왕십리,마장,@S동대문구,답십리,장한평,@S광진구,군자,아차산,광나루,@S강동구,천호,강동,길동,굽은다리,명일,고덕,상일동,강일,@G하남시,미사,하남풍산,하남시청,하남검단산",
+  "^강동,@S강동구,둔촌동,@S송파구,올림픽공원,방이,오금,개롱,거여,마천"]},
+ {id:"6",label:"6",name:"6호선",color:"#CD7C2F",segs:[
+  "@S은평구,응암,역촌,불광,독바위,연신내,구산",
+  "^응암,@S은평구,새절,증산,@S마포구,디지털미디어시티,월드컵경기장,마포구청,망원,합정,상수,광흥창,대흥,공덕,@S용산구,효창공원앞,삼각지,녹사평,이태원,한강진,@S중구,버티고개,약수,청구,신당,@S종로구,동묘앞,창신,@S성북구,보문,안암,고려대,월곡,상월곡,돌곶이,@S노원구,석계,태릉입구,화랑대,@S중랑구,봉화산,신내"]},
+ {id:"7",label:"7",name:"7호선",color:"#747F00",segs:[
+  "@G의정부시,장암,@S도봉구,도봉산,@S노원구,수락산,마들,노원,중계,하계,공릉,태릉입구,@S중랑구,먹골,중화,상봉,면목,사가정,용마산,@S광진구,중곡,군자,어린이대공원,건대입구,자양=뚝섬유원지=뚝섬한강공원,@S강남구,청담,강남구청,학동,논현,@S서초구,반포,고속터미널,내방,@S동작구,이수=총신대입구,남성,숭실대입구,상도,장승배기,신대방삼거리,보라매,@S영등포구,신풍,@S구로구,대림,남구로,@S금천구,가산디지털단지,@G광명시,철산,광명사거리,@S구로구,천왕,온수,@G부천시,까치울,부천종합운동장,춘의,신중동,부천시청,상동,@I부평구,삼산체육관,굴포천,부평구청,산곡,@I서구,석남"]},
+ {id:"8",label:"8",name:"8호선",color:"#E6186C",segs:[
+  "@G남양주시,별내,다산,@G구리시,동구릉,구리,장자호수공원,@S강동구,암사역사공원,암사,천호,강동구청,@S송파구,몽촌토성,잠실,석촌,송파,가락시장,문정,장지,@G성남시,복정,남위례,산성,남한산성입구,단대오거리,신흥,수진,모란"]},
+ {id:"9",label:"9",name:"9호선",color:"#BDB092",segs:[
+  "@S강서구,개화,김포공항,공항시장,신방화,마곡나루,양천향교,가양,증미,등촌,염창,@S양천구,신목동,@S영등포구,선유도,당산,국회의사당,여의도,샛강,@S동작구,노량진,노들,흑석,동작,@S서초구,구반포,신반포,고속터미널,사평,@S강남구,신논현,언주,선정릉,삼성중앙,봉은사,@S송파구,종합운동장,삼전,석촌고분,석촌,송파나루,한성백제,올림픽공원,@S강동구,둔촌오륜,중앙보훈병원"]},
+ {id:"bd",label:"수인",name:"수인분당선",color:"#F5A200",segs:[
+  "@S동대문구,청량리,@S성동구,왕십리,서울숲,@S강남구,압구정로데오,강남구청,선정릉,선릉,한티,도곡,구룡,개포동,대모산입구,수서,@G성남시,복정,가천대,태평,모란,야탑,이매,서현,수내,정자,미금,오리,@G용인시,죽전,보정,구성,신갈,기흥,상갈,청명,@G수원시,영통,망포,매탄권선,수원시청,매교,수원,고색,오목천,@G화성시,어천,야목,@G안산시,사리,한대앞,중앙,고잔,초지,안산,신길온천,@G시흥시,정왕,오이도,달월,월곶,@I남동구,소래포구,인천논현,호구포,남동인더스파크,@I연수구,원인재,연수,송도,@I미추홀구,인하대,숭의,@I중구,신포,인천"]},
+ {id:"sb",label:"신분",name:"신분당선",color:"#D4003B",segs:[
+  "@S강남구,신사,논현,신논현,강남,@S서초구,양재,양재시민의숲,청계산입구,@G성남시,판교,정자,미금,@G용인시,동천,수지구청,성복,상현,@G수원시,광교중앙,광교"]},
+ {id:"gj",label:"경의",name:"경의·중앙선",color:"#77C4A3",segs:[
+  "@G파주시,문산,파주,월롱,금촌,금릉,운정,야당,@G고양시,탄현,일산,풍산,백마,곡산,대곡,능곡,행신,강매,한국항공대,@S은평구,수색,@S마포구,디지털미디어시티,@S서대문구,가좌,@S마포구,홍대입구,서강대,공덕,@S용산구,효창공원앞,용산,이촌,서빙고,한남,@S성동구,옥수,응봉,왕십리,@S동대문구,청량리,회기,@S중랑구,중랑,상봉,망우,양원,@G구리시,구리,@G남양주시,도농,양정,덕소,도심,팔당,운길산,@G양평군,양수,신원,국수,아신,오빈,양평,원덕,용문,지평",
+  "^가좌,@S서대문구,신촌!,@S중구,서울역"]},
+ {id:"gc",label:"경춘",name:"경춘선",color:"#0C8E72",segs:[
+  "@S동대문구,청량리,회기,@S중랑구,중랑,상봉,망우,신내,@G구리시,갈매,@G남양주시,별내,퇴계원,사릉,금곡,평내호평,천마산,마석,@G가평군,대성리,청평,상천,가평,굴봉산,@K춘천시,백양리,강촌,김유정,남춘천,춘천",
+  "^상봉,@S노원구,광운대"]},
+ {id:"gg",label:"경강",name:"경강선",color:"#003DA5",segs:[
+  "@G성남시,판교,이매,@G광주시,삼동,경기광주,초월,곤지암,@G이천시,신둔도예촌,이천,부발,@G여주시,세종대왕릉,여주"]},
+ {id:"sh",label:"서해",name:"서해선",color:"#81A914",segs:[
+  "@G고양시,일산,풍산,백마,곡산,대곡,능곡,@S강서구,김포공항,@G부천시,원종,부천종합운동장,소사,소새울,@G시흥시,시흥대야,신천,신현,시흥시청,시흥능곡,@G안산시,달미,선부,초지,시우,원시"]},
+ {id:"ar",label:"공항",name:"공항철도",color:"#0090D2",segs:[
+  "@S중구,서울역,@S마포구,공덕,홍대입구,디지털미디어시티,@S강서구,마곡나루,김포공항,@I계양구,계양,@I서구,검암,청라국제도시,@I중구,영종,운서,공항화물청사,인천공항1터미널,인천공항2터미널"]},
+ {id:"gtx",label:"A",name:"GTX-A",color:"#9A6292",segs:[
+  "@G파주시,운정중앙,@G고양시,킨텍스,대곡,@S은평구,연신내,@S중구,서울역,@S강남구,수서,@G성남시,성남,@G용인시,구성,@G화성시,동탄"]},
+ {id:"i1",label:"인1",name:"인천 1호선",color:"#7CA8D5",segs:[
+  "@I서구,검단호수공원,신검단중앙,아라,@I계양구,계양,귤현,박촌,임학,계산,경인교대입구,작전,@I부평구,갈산,부평구청,부평시장,부평,동수,부평삼거리,@I남동구,간석오거리,인천시청,예술회관,@I미추홀구,인천터미널,문학경기장,@I연수구,선학,신연수,원인재,동춘,동막,캠퍼스타운,테크노파크,지식정보단지,인천대입구,센트럴파크,국제업무지구,송도달빛축제공원"]},
+ {id:"i2",label:"인2",name:"인천 2호선",color:"#ED8B00",segs:[
+  "@I서구,검단오류,왕길,검단사거리,마전,완정,독정,검암,검바위,아시아드경기장,서구청,가정,가정중앙시장,석남,서부여성회관,인천가좌,가재울,@I부평구,주안국가산단,@I미추홀구,주안,시민공원,석바위시장,@I남동구,인천시청,석천사거리,모래내시장,만수,남동구청,인천대공원,운연"]},
+ {id:"ui",label:"우이",name:"우이신설선",color:"#B0CE18",segs:[
+  "@S강북구,북한산우이,솔밭공원,4.19민주묘지,가오리,화계,삼양,삼양사거리,솔샘,@S성북구,북한산보국문,정릉,성신여대입구,보문,@S동대문구,신설동"]},
+ {id:"sl",label:"신림",name:"신림선",color:"#6789CA",segs:[
+  "@S영등포구,샛강,대방,@S동작구,서울지방병무청,보라매,보라매공원,보라매병원,@S관악구,당곡,신림,서원,서울대벤처타운,관악산"]},
+ {id:"gp",label:"김포",name:"김포골드라인",color:"#A17800",segs:[
+  "@G김포시,양촌,구래,마산,장기,운양,걸포북변,사우(김포시청),풍무,고촌,@S강서구,김포공항"]},
+ {id:"ug",label:"의정",name:"의정부경전철",color:"#FDA600",segs:[
+  "@G의정부시,발곡,회룡,범골,경전철의정부,의정부시청,흥선,의정부중앙,동오,새말,경기도청북부청사,효자,곤제,어룡,송산,탑석"]},
+ {id:"ev",label:"용인",name:"용인에버라인",color:"#509F22",segs:[
+  "@G용인시,기흥,강남대,지석,어정,동백,초당,삼가,시청·용인대,명지대,김량장,운동장·송담대,고진,보평,둔전,전대·에버랜드"]}
+];
+
+const REGION = {S:"서울 ",G:"경기 ",I:"인천 ",C:"충남 ",K:"강원 "};
+const CHO = "ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ";
+
+function norm(s){ return s.replace(/[\s·.\-()]/g,"").replace(/역$/,""); }
+function choseong(s){
+  return [...s].map(ch=>{
+    const c = ch.charCodeAt(0) - 0xAC00;
+    return (c>=0 && c<11172) ? CHO[Math.floor(c/588)] : ch;
+  }).join("");
+}
+
+// 노선 문자열을 역 목록으로 바꿈
+function parseSegs(segs){
+  const list = [];
+  segs.forEach(seg=>{
+    let region = "", prev = null, first = true;
+    seg.split(",").forEach(tok=>{
+      tok = tok.trim();
+      if(!tok) return;
+      if(tok[0]==="@"){ region = REGION[tok[1]] + tok.slice(2); return; }
+      if(tok[0]==="^"){ prev = tok.slice(1); return; }
+      const solo = tok.endsWith("!");
+      const parts = tok.replace(/!$/,"").split("=");
+      const name = parts[0];
+      const main = name.replace(/\(.*\)/,"");
+      const sub = (name.match(/\((.*)\)/)||[])[1];
+      const ok = new Set([norm(name), norm(main)]);
+      if(sub) ok.add(norm(sub));
+      parts.slice(1).forEach(a=>ok.add(norm(a)));
+      if(main.includes("·")) main.split("·").forEach(p=>ok.add(norm(p)));
+      list.push({name, main, region, prev, ok, solo, gap: first && prev!==null, xfer: []});
+      prev = name; first = false;
+    });
+  });
+  return list;
+}
+LINES.forEach(line=>{
+  line.vars = {};
+  if(line.variants){
+    line.variants.forEach(v=>{
+      const segs = []; let pre = "";
+      v.parts.forEach(p=>{
+        if(line.parts[p]!==undefined){ segs.push(pre + line.parts[p]); pre = ""; }
+        else pre += p;
+      });
+      line.vars[v.key] = parseSegs(segs);
+    });
+  } else line.vars.all = parseSegs(line.segs);
+  line.stations = line.vars.all;
+  const rgb = parseInt(line.color.slice(1),16);
+  const r=(rgb>>16)&255, g=(rgb>>8)&255, b=rgb&255;
+  line.ink = (0.299*r+0.587*g+0.114*b) > 165 ? "#14181D" : "#FFFFFF";
+});
+
+// 환승: 다른 노선에 이름(다른 이름 포함)과 지역이 같은 역이 있으면 환승역
+function sameStation(a,b){
+  if(a.solo || b.solo || a.region!==b.region) return false;
+  for(const k of a.ok) if(b.ok.has(k)) return true;
+  return false;
+}
+LINES.forEach((line,li)=>{
+  Object.values(line.vars).forEach(list=>list.forEach(st=>{
+    LINES.forEach((other,oi)=>{
+      if(oi!==li && other.stations.some(o=>sameStation(st,o))) st.xfer.push(oi);
+    });
+  }));
+});
+const TOTAL = LINES.reduce((n,l)=>n+l.stations.length,0);
+
+function varKey(li){ return (S && S.vars && S.vars[li]) || "all"; }
+function stationsOf(li){ return LINES[li].vars[varKey(li)]; }
+function lineName(li){
+  const line = LINES[li], k = varKey(li);
+  if(!line.variants || k==="all") return line.name;
+  return `${line.name} ${line.variants.find(v=>v.key===k).name}`;
+}
+
+const $ = id => document.getElementById(id);
+let S = null; // 게임 상태
+
+function badge(el, line){
+  el.textContent = line.label;
+  el.style.background = line.color;
+  el.style.color = line.ink;
+}
+function setLineColor(line){
+  document.documentElement.style.setProperty("--line", line.color);
+  document.documentElement.style.setProperty("--line-ink", line.ink);
+}
+function show(id){
+  ["pick","play","result"].forEach(s=>$(s).hidden = (s!==id));
+  window.scrollTo(0,0);
+}
+
+function renderPick(){
+  $("totalCount").textContent = `${LINES.length}개 노선 · 역 ${TOTAL}개`;
+  const box = $("lineList");
+  box.innerHTML = "";
+  LINES.forEach((line,i)=>{
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "line-btn";
+    b.innerHTML = `<span class="badge"></span><span class="nm"></span><span class="ct num"></span>`;
+    badge(b.querySelector(".badge"), line);
+    b.querySelector(".nm").textContent = line.name;
+    b.querySelector(".ct").textContent = line.variants ? `구간 ${line.variants.length}개` : `${line.stations.length}역`;
+    b.addEventListener("click",()=> line.variants ? openVariants(i) : start(i));
+    box.appendChild(b);
+  });
+  box.hidden = false;
+  $("variantBox").hidden = true;
+  document.documentElement.style.setProperty("--line", "#0052A4");
+  document.documentElement.style.setProperty("--line-ink", "#FFFFFF");
+}
+
+function openVariants(i){
+  const line = LINES[i];
+  badge($("variantBadge"), line);
+  $("variantTitle").textContent = `${line.name}은 어느 구간으로 할까요?`;
+  const list = $("variantList");
+  list.innerHTML = "";
+  line.variants.forEach(v=>{
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "var-btn";
+    b.innerHTML = `<strong></strong><span></span><em class="num"></em>`;
+    b.querySelector("strong").textContent = v.name;
+    b.querySelector("span").textContent = v.desc;
+    b.querySelector("em").textContent = `${line.vars[v.key].length}역`;
+    b.addEventListener("click",()=>start(i, v.key));
+    list.appendChild(b);
+  });
+  $("lineList").hidden = true;
+  $("variantBox").hidden = false;
+  list.querySelector("button").focus();
+}
+
+function start(i, key){
+  const order = [i];
+  const vars = {};
+  if(key) vars[i] = key;
+  S = {order, vars, li:0, si:0, phase:"ask", results:[], marks:[], last:null};
+  S.total = order.reduce((n,li)=>n+stationsOf(li).length,0);
+  show("play");
+  renderPlay();
+}
+
+function curLine(){ return LINES[S.order[S.li]]; }
+function curStations(){ return stationsOf(S.order[S.li]); }
+function curStation(){ return curStations()[S.si]; }
+
+function renderPlay(){
+  const line = curLine(), st = curStation(), sts = curStations();
+  setLineColor(line);
+  badge($("curBadge"), line); badge($("signBadge"), line);
+  $("curName").textContent = lineName(S.order[S.li]);
+  const ok = S.results.filter(r=>r.ok).length;
+  $("okCount").textContent = ok;
+  $("noCount").textContent = S.results.length - ok;
+  $("doneCount").textContent = S.results.length;
+  $("allCount").textContent = S.total;
+  $("barFill").style.width = (S.results.length/S.total*100)+"%";
+
+  const fb = S.phase==="fb";
+  const cho = $("cho");
+  cho.textContent = fb ? st.name : choseong(st.main);
+  cho.classList.toggle("reveal", fb);
+  $("region").textContent = st.region;
+  $("prevName").textContent = st.prev || "출발역";
+  $("posText").textContent = `${S.si+1} / ${sts.length}`;
+  const xf = $("xfer");
+  xf.innerHTML = "";
+  xf.hidden = !st.xfer.length;
+  if(st.xfer.length){
+    const t = document.createElement("span"); t.textContent = "환승";
+    xf.appendChild(t);
+    st.xfer.forEach(oi=>{
+      const b = document.createElement("span");
+      b.className = "badge"; b.title = LINES[oi].name;
+      badge(b, LINES[oi]);
+      xf.appendChild(b);
+    });
+  }
+
+  const input = $("answer");
+  input.readOnly = fb;
+  if(!fb) input.value = "";
+  const f = $("feedback");
+  f.className = "feedback";
+  f.innerHTML = "";
+  if(fb && S.last){
+    if(S.last.ok){ f.classList.add("ok"); f.textContent = `정답! ${st.name}`; }
+    else{
+      f.classList.add("no");
+      f.innerHTML = S.last.given
+        ? `틀렸어요. <s></s> 정답은 ${st.name}`
+        : `정답은 ${st.name}`;
+      const s = f.querySelector("s"); if(s) s.textContent = S.last.given;
+    }
+  }
+  const lastOfLine = S.si === sts.length-1;
+  const lastOfAll = lastOfLine && S.li === S.order.length-1;
+  $("checkBtn").textContent = !fb ? "확인"
+    : lastOfAll ? "결과 보기"
+    : lastOfLine ? `다음 노선: ${lineName(S.order[S.li+1])}` : "다음 역";
+  $("skipBtn").hidden = fb;
+
+  renderStrip(line, sts);
+  input.focus({preventScroll:true});
+}
+
+function renderStrip(line, sts){
+  $("stripTitle").textContent = `${lineName(S.order[S.li])} 진행`;
+  const marks = S.marks;
+  const right = marks.filter(m=>m==="ok").length;
+  $("stripCount").textContent = `맞힘 ${right} · 틀림 ${marks.length-right}`;
+  const strip = $("strip");
+  strip.innerHTML = "";
+  let nowEl = null;
+  sts.forEach((st,i)=>{
+    const d = document.createElement("div");
+    d.className = "st";
+    if(st.gap) d.classList.add("gap");
+    let label = "";
+    if(i < marks.length){ d.classList.add(marks[i]); label = st.name; }
+    else if(i === S.si){ d.classList.add("now"); label = "?"; nowEl = d; }
+    d.innerHTML = `<span class="dot"></span><b></b>`;
+    d.querySelector("b").textContent = label;
+    if(st.gap) d.title = `${st.prev}에서 갈라짐`;
+    strip.appendChild(d);
+  });
+  const target = nowEl || strip.children[Math.max(0,marks.length-1)];
+  if(target) strip.scrollLeft = Math.max(0, target.offsetLeft - strip.clientWidth/2 + 29);
+}
+
+function grade(given){
+  const st = curStation();
+  const okv = given !== null && st.ok.has(norm(given));
+  S.last = {ok:okv, given};
+  S.results.push({line:S.order[S.li], name:st.name, ok:okv, given});
+  S.marks.push(okv ? "ok" : "no");
+  S.phase = "fb";
+  renderPlay();
+}
+
+function next(){
+  if(S.si < curStations().length-1){ S.si++; }
+  else if(S.li < S.order.length-1){ S.li++; S.si = 0; S.marks = []; }
+  else { finish(true); return; }
+  S.phase = "ask"; S.last = null;
+  renderPlay();
+}
+
+function act(){
+  if(!S || $("play").hidden) return;
+  if(S.phase==="fb"){ next(); return; }
+  const v = $("answer").value.trim();
+  if(!v){ $("answer").focus(); return; }
+  grade(v);
+}
+
+function finish(all){
+  const res = S.results;
+  const ok = res.filter(r=>r.ok).length;
+  const no = res.length - ok;
+  const li = S.order[0], name = lineName(li), sts = stationsOf(li);
+  $("resultTitle").textContent = all ? `${name} 완주!` : `${name} 여기까지 풀었어요`;
+  $("resultSub").textContent = all
+    ? `${sts.length}개 역을 모두 풀었어요.`
+    : `${sts.length}개 역 중 ${res.length}개를 풀었어요.`;
+  $("rOk").textContent = ok;
+  $("rNo").textContent = no;
+  $("rRate").textContent = res.length ? Math.round(ok/res.length*100)+"%" : "0%";
+
+  // 틀린 역 목록 (내가 쓴 답 함께)
+  const ml = $("missList"); ml.innerHTML = "";
+  const wrong = res.filter(r=>!r.ok);
+  wrong.forEach(w=>{
+    const c = document.createElement("span");
+    c.className = "chip no";
+    c.textContent = w.name;
+    if(w.given){ const s = document.createElement("s"); s.textContent = w.given; c.appendChild(s); }
+    ml.appendChild(c);
+  });
+  $("missTitle").textContent = `틀린 역 ${wrong.length}개`;
+  $("missWrap").hidden = !wrong.length;
+
+  // 노선 전체를 순서대로 보여 주고 틀린 역을 표시
+  $("routeTitle").textContent = `${name} 기록`;
+  const route = $("route"); route.innerHTML = "";
+  sts.forEach((st,i)=>{
+    if(st.gap){
+      const sp = document.createElement("li");
+      sp.className = "split";
+      sp.textContent = `${st.prev}에서 갈라지는 구간`;
+      route.appendChild(sp);
+    }
+    const r = res[i];
+    const it = document.createElement("li");
+    it.className = r ? (r.ok ? "ok" : "no") : "skip";
+    it.innerHTML = `<span class="n num">${i+1}</span><span class="d"></span><span class="t"></span>`;
+    it.querySelector(".t").textContent = st.name;
+    if(r && !r.ok) it.title = r.given ? `내 답: ${r.given}` : "모르겠어요";
+    route.appendChild(it);
+  });
+  S.phase = "done";
+  document.documentElement.style.setProperty("--line", LINES[S.order[0]].color);
+  document.documentElement.style.setProperty("--line-ink", LINES[S.order[0]].ink);
+  show("result");
+}
+
+$("answerForm").addEventListener("submit", e=>{ e.preventDefault(); });
+$("answer").addEventListener("keydown", e=>{
+  if(e.key!=="Enter") return;
+  e.preventDefault();
+  if(e.isComposing || e.keyCode===229) return; // 한글 조합 중 Enter는 한 번만 처리
+  act();
+});
+$("checkBtn").addEventListener("click", e=>{ e.preventDefault(); act(); });
+$("skipBtn").addEventListener("click", ()=>{ if(S && S.phase==="ask") grade(null); });
+$("quitBtn").addEventListener("click", ()=>finish(false));
+$("againBtn").addEventListener("click", ()=>{ S = null; renderPick(); show("pick"); });
+$("retryBtn").addEventListener("click", ()=>{ const li = S.order[0]; start(li, S.vars[li]); });
+$("variantBack").addEventListener("click", ()=>renderPick());
+
+function boot(saved){
+  renderPick();
+  if(saved && saved.S && saved.S.order.length===1){
+    S = saved.S;
+    if(!S.vars) S.vars = {};
+    if(!S.total) S.total = S.order.reduce((n,li)=>n+stationsOf(li).length,0);
+    if(S.phase==="done"){ finish(S.results.length===S.total); }
+    else { show("play"); renderPlay(); }
+  } else show("pick");
+}
+window.claude?.hot?.snapshot?.(()=>({S}));
+window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.hot?.data ?? {});
+</script>
+</body>
+</html>
