@@ -157,6 +157,11 @@ td.r,th.r{text-align:right}
   .totals strong{font-size:24px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
+/* 정답 효과: 화면 위에서 별이 떨어짐 */
+.stars{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:50}
+.star{position:absolute;top:-48px;line-height:1;animation:starfall linear forwards;will-change:transform}
+@keyframes starfall{to{transform:translateY(calc(100vh + 96px)) rotate(var(--spin));opacity:.85}}
+@media (prefers-reduced-motion:reduce){.star{display:none}}
 </style>
 </head>
 <body>
@@ -560,7 +565,26 @@ function grade(given){
   S.results.push({line:S.order[S.li], name:st.name, ok:okv, given});
   S.marks.push(okv ? "ok" : "no");
   S.phase = "fb";
+  if(okv) dropStars();
   renderPlay();
+}
+
+// 정답을 맞히면 ⭐ 여러 개가 화면 위에서 떨어짐
+function dropStars(){
+  let box = document.querySelector(".stars");
+  if(!box){ box = document.createElement("div"); box.className = "stars"; box.setAttribute("aria-hidden","true"); document.body.appendChild(box); }
+  for(let i=0;i<14;i++){
+    const s = document.createElement("span");
+    s.className = "star";
+    s.textContent = "⭐";
+    s.style.left = Math.random()*100 + "vw";
+    s.style.fontSize = (18 + Math.random()*22) + "px";
+    s.style.animationDuration = (1.4 + Math.random()*1.2) + "s";
+    s.style.animationDelay = (Math.random()*0.5) + "s";
+    s.style.setProperty("--spin", (Math.random()*720-360) + "deg");
+    s.addEventListener("animationend", ()=>s.remove());
+    box.appendChild(s);
+  }
 }
 
 function next(){
