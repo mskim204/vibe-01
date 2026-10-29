@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>센서 게임</title>
+<style>
+:root{--bg:#EEF1F4;--surface:#FFFFFF;--ink:#14181D;--muted:#5A6470;--rule:#CBD2D9;--accent:#0052A4;--accent-ink:#FFFFFF}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#0F1216;--surface:#181C22;--ink:#E7EBEF;--muted:#97A1AC;--rule:#2B323B;--accent:#3D8BFF;--accent-ink:#FFFFFF;color-scheme:dark}
+}
+:root[data-theme="dark"]{--bg:#0F1216;--surface:#181C22;--ink:#E7EBEF;--muted:#97A1AC;--rule:#2B323B;--accent:#3D8BFF;--accent-ink:#FFFFFF;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.55}
+.wrap{max-width:520px;margin:0 auto;padding:40px 16px;display:flex;flex-direction:column;gap:20px;text-align:center}
+h1{margin:0;font-size:30px}
+p{margin:0;color:var(--muted)}
+.games{display:flex;flex-direction:column;gap:12px}
+.game{display:flex;align-items:center;gap:14px;text-align:left;padding:16px 18px;background:var(--surface);border:1px solid var(--rule);border-radius:14px;color:var(--ink);text-decoration:none}
+.game:hover{border-color:var(--accent)}
+.game .ico{font-size:34px;flex:none}
+.game strong{display:block;font-size:19px}
+.game span{font-size:14px;color:var(--muted)}
+.back{color:var(--muted);font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📱 센서 게임</h1>
+  <p>휴대폰의 기울기 센서로 하는 게임이에요.</p>
+  <div class="games">
+    <a class="game" href="maze.html">
+      <span class="ico">🟢</span>
+      <div><strong>미로게임</strong><span>폰을 기울여 공을 굴려 골인 지점까지!</span></div>
+    </a>
+  </div>
+  <a class="back" href="../">← 처음으로</a>
+</div>
+</body>
+</html>
