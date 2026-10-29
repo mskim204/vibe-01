@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; background: #f4f6fb; margin: 0; padding: 24px 16px; color: #222; }
+    .card { max-width: 420px; margin: 0 auto; background: #fff; border-radius: 16px; padding: 24px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+    h1 { text-align: center; margin: 0 0 20px; font-size: 24px; }
+    label { font-weight: bold; display: block; margin-bottom: 8px; }
+    #code { width: 100%; font-size: 28px; letter-spacing: 12px; text-align: center; padding: 10px; border: 2px solid #ccd; border-radius: 10px; }
+    .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 20px 0; }
+    .choice { padding: 16px; font-size: 20px; border: 2px solid #ccd; border-radius: 12px; background: #fff; cursor: pointer; }
+    .choice.on { border-color: #0052A4; background: #e6eefb; font-weight: bold; }
+    #submit { width: 100%; padding: 14px; font-size: 18px; border: 0; border-radius: 12px; background: #0052A4; color: #fff; font-weight: bold; cursor: pointer; }
+    #submit:disabled { background: #99a; }
+    #msg { margin-top: 16px; text-align: center; font-size: 18px; font-weight: bold; min-height: 1.4em; }
+    .ok { color: #1B8048; } .err { color: #c62828; }
+    .row { margin: 14px 0; }
+    .row-top { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 18px; }
+    .track { background: #eef; border-radius: 8px; height: 28px; overflow: hidden; }
+    .bar { background: #0052A4; height: 100%; width: 0; transition: width .6s; }
+    #total { text-align: center; color: #667; margin-top: 16px; }
+  </style>
+</head>
+<body>
+<? if (page === 'result') { ?>
+  <div class="card">
+    <h1>📊 투표 결과</h1>
+    <div id="chart">불러오는 중…</div>
+    <div id="total"></div>
+  </div>
+  <script>
+    function draw(list) {
+      var max = Math.max.apply(null, list.map(function (x) { return x.count; }).concat([1]));
+      var total = list.reduce(function (s, x) { return s + x.count; }, 0);
+      document.getElementById('chart').innerHTML = list.map(function (x) {
+        return '<div class="row"><div class="row-top"><span>' + x.choice + '</span><b>' + x.count + '표</b></div>' +
+               '<div class="track"><div class="bar" style="width:' + (x.count / max * 100) + '%"></div></div></div>';
+      }).join('');
+      document.getElementById('total').textContent = '총 ' + total + '표 · 10초마다 새로고침';
+    }
+    function load() { google.script.run.withSuccessHandler(draw).getResults(); }
+    load();
+    setInterval(load, 10000);
+  </script>
+<? } else { ?>
+  <div class="card">
+    <h1>🗳️ 투표하기</h1>
+    <label for="code">투표 코드 (4자리)</label>
+    <input id="code" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="0000">
+    <div class="choices">
+      <? for (var i = 0; i < choices.length; i++) { ?>
+        <button class="choice" type="button" data-v="<?= choices[i] ?>"><?= choices[i] ?></button>
+      <? } ?>
+    </div>
+    <button id="submit" type="button">투표하기</button>
+    <div id="msg"></div>
+  </div>
+  <script>
+    var picked = '';
+    var codeEl = document.getElementById('code');
+    var msgEl = document.getElementById('msg');
+    var btn = document.getElementById('submit');
+
+    codeEl.addEventListener('input', function () {
+      codeEl.value = codeEl.value.replace(/\D/g, '').slice(0, 4);
+    });
+    document.querySelectorAll('.choice').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.choice').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        picked = b.getAttribute('data-v');
+      });
+    });
+
+    function show(text, ok) { msgEl.textContent = text; msgEl.className = ok ? 'ok' : 'err'; }
+
+    btn.addEventListener('click', function () {
+      if (!/^\d{4}$/.test(codeEl.value)) return show('코드 4자리를 입력해 주세요', false);
+      if (!picked) return show('보기를 하나 골라 주세요', false);
+      btn.disabled = true;
+      show('확인 중…', true);
+      google.script.run
+        .withSuccessHandler(function (r) {
+          btn.disabled = false;
+          show(r.message, r.ok);
+          if (r.ok) {
+            codeEl.value = '';
+            picked = '';
+            document.querySelectorAll('.choice').forEach(function (x) { x.classList.remove('on'); });
+          }
+        })
+        .withFailureHandler(function () {
+          btn.disabled = false;
+          show('오류가 났어요. 다시 시도해 주세요', false);
+        })
+        .submitVote(codeEl.value, picked);
+    });
+  </script>
+<? } ?>
+</body>
+</html>
