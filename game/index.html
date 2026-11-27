@@ -3761,7 +3761,8 @@ function netGuestMsg(d) {
   if (d.t === 'room') { NET.room = d; NET.members = Array.isArray(d.members) ? d.members : []; NET.rank = d.rank || {}; refreshNetUI(); drawBoardSign(); }
   else if (d.t === 'start') netGuestStart(d);
   else if (d.t === 's') { const m = APP.match; if (m && m.net && m.net.guest && m.net.mid === d.mid) netApplySnap(m, d); }
-  else if (d.t === 'abort') { const m = APP.match; if (m && m.net && m.net.guest) { m.net = null; if (APP.modal) { APP.onClose = null; closeModal(); } goLobby(); toast('방장이 경기를 끝냈어요'); } }
+  else if (d.t === 'abort') { const m = APP.match; if (m && m.net && m.net.guest) { if (m.done) { m.net = null; return; } m.net = null; // 끝난 경기면 결과 화면은 그대로 둠
+ if (APP.modal) { APP.onClose = null; closeModal(); } goLobby(); toast('방장이 경기를 끝냈어요'); } }
   else if (d.t === 'bye') { netLeave(true); toast('방장이 방을 닫았어요'); }
   else if (d.t === 'full') { netLeave(true); toast('방이 꽉 찼어요 (8명)'); }
 }
@@ -3892,7 +3893,7 @@ function netGuestStep(m, dt) { // 다른 사람 화면: 받은 상태 사이를 
 function netLeaveMatch(m) { // 경기에서 나감 (방에는 그대로)
   const N = m.net; if (!N) return;
   m.net = null;
-  if (N.host) hostBroadcast({ t: 'abort' });
+  if (N.host) { if (!m.done) hostBroadcast({ t: 'abort' }); }
   else if (!m.done) netSend({ t: 'leave' });
   if (N.host) setTimeout(netRoomSync, 0);
 }
